@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -27,17 +28,16 @@ type (
 	}
 )
 
-func NewMessageReadPublisher(msg []byte, redisService redisService) *MessageRead {
+func NewMessageReadPublisher(redisService redisService) *MessageRead {
 	return &MessageRead{
-		Message:      msg,
 		RedisService: redisService,
 	}
 }
 
-func (m *MessageRead) Run() error {
+func (m *MessageRead) Publish(msg []byte) error {
 	messageReadEvent := &MessageReadEvent{}
 
-	err := json.Unmarshal(m.Message, &messageReadEvent)
+	err := json.Unmarshal(msg, &messageReadEvent)
 	if err != nil {
 		return errors.New(fmt.Sprintf("cant unmarshal %s", err))
 	}

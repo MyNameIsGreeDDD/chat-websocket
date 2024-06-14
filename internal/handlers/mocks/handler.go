@@ -92,43 +92,6 @@ func (mr *MockwsServiceInterfaceMockRecorder) WriteServerClose(msg, conn interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteServerClose", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteServerClose), msg, conn)
 }
 
-// MockauthHandlerInterface is a mock of authHandlerInterface interface.
-type MockauthHandlerInterface struct {
-	ctrl     *gomock.Controller
-	recorder *MockauthHandlerInterfaceMockRecorder
-}
-
-// MockauthHandlerInterfaceMockRecorder is the mock recorder for MockauthHandlerInterface.
-type MockauthHandlerInterfaceMockRecorder struct {
-	mock *MockauthHandlerInterface
-}
-
-// NewMockauthHandlerInterface creates a new mock instance.
-func NewMockauthHandlerInterface(ctrl *gomock.Controller) *MockauthHandlerInterface {
-	mock := &MockauthHandlerInterface{ctrl: ctrl}
-	mock.recorder = &MockauthHandlerInterfaceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockauthHandlerInterface) EXPECT() *MockauthHandlerInterfaceMockRecorder {
-	return m.recorder
-}
-
-// Handle mocks base method.
-func (m *MockauthHandlerInterface) Handle(conn net.Conn, msg []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handle", conn, msg)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Handle indicates an expected call of Handle.
-func (mr *MockauthHandlerInterfaceMockRecorder) Handle(conn, msg interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockauthHandlerInterface)(nil).Handle), conn, msg)
-}
-
 // MockloggerInterface is a mock of loggerInterface interface.
 type MockloggerInterface struct {
 	ctrl     *gomock.Controller

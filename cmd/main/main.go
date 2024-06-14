@@ -11,6 +11,10 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"websocket-confee/internal/models"
+	"websocket-confee/internal/services/event"
+	"websocket-confee/internal/services/event/publish/publishers"
+	"websocket-confee/internal/services/event/receive/receivers"
 
 	"github.com/gobwas/ws"
 	r_client "github.com/redis/go-redis/v9"
@@ -24,9 +28,7 @@ import (
 	"websocket-confee/internal/services/websocket"
 )
 
-const CountConnections = 5000
-
-var connections = make(map[int]net.Conn, CountConnections)
+const CountConnections = 2500
 
 func main() {
 	wsService := websocket.NewWebSocketService()
@@ -52,7 +54,11 @@ func main() {
 	globalCtx, globalCancel := context.WithCancel(context.Background())
 	listenerCtx, _ := context.WithCancel(globalCtx)
 
-	receive.RegisterEventListener(redisService, wsService, log, connections, subsPool, &subsWG, listenerCtx).Run()
+	allowedReceivers := initReceivers(wsService)
+	allowedPublishers := initPublishers(redisService)
+	connections := make(map[int]net.Conn, CountConnections)
+
+	receive.RegisterEventListener(redisService, wsService, log, connections, subsPool, &subsWG, listenerCtx, allowedReceivers).Run()
 
 	ln, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
@@ -82,14 +88,7 @@ func main() {
 	connMutex := &sync.RWMutex{}
 	publisherCtx, _ := context.WithCancel(globalCtx)
 
-	authHandler := handlers.NewAuthHandler(
-		redisService,
-		wsService,
-		connections,
-		connMutex,
-	)
-
-	mainEventHandler := handlers.NewHandler(
+	eventHandler := handlers.NewHandler(
 		redisService,
 		wsService,
 		log,
@@ -98,7 +97,7 @@ func main() {
 		&connWg,
 		connMutex,
 		publisherCtx,
-		authHandler,
+		allowedPublishers,
 	)
 
 	for {
@@ -108,11 +107,25 @@ func main() {
 			continue
 		}
 
-		mainEventHandler.Handle(conn)
+		eventHandler.Handle(conn)
 	}
 
 	connWg.Wait()
 	subsWG.Wait()
+}
+
+func initReceivers(wsService *websocket.Service) map[string]event.Receiver {
+	allowedReceivers := make(map[string]event.Receiver, 1)
+	allowedReceivers[models.MessageRead] = receivers.NewMessageReadReceiver(wsService)
+
+	return allowedReceivers
+}
+
+func initPublishers(service *r_service.Service) map[string]event.Publisher {
+	allowedPublishers := make(map[string]event.Publisher, 1)
+	allowedPublishers[models.MessageRead] = publishers.NewMessageReadPublisher(service)
+
+	return allowedPublishers
 }
 
 func initGraceFullShutDown(

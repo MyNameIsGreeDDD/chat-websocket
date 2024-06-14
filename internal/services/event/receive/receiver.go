@@ -26,13 +26,14 @@ type loggerInterface interface {
 }
 
 type EventSub struct {
-	RedisService redisServiceInterface
-	log          loggerInterface
-	wsService    wsServiceInterface
-	connections  map[int]net.Conn
-	subsPool     chan struct{}
-	subsWg       *sync.WaitGroup
-	ctx          context.Context
+	RedisService     redisServiceInterface
+	log              loggerInterface
+	wsService        wsServiceInterface
+	connections      map[int]net.Conn
+	subsPool         chan struct{}
+	subsWg           *sync.WaitGroup
+	ctx              context.Context
+	allowedReceivers map[string]event.Receiver
 }
 
 func RegisterEventListener(
@@ -43,15 +44,17 @@ func RegisterEventListener(
 	subsPool chan struct{},
 	subsWg *sync.WaitGroup,
 	ctx context.Context,
-) event.Worker {
+	allowedReceivers map[string]event.Receiver,
+) *EventSub {
 	return &EventSub{
-		RedisService: RedisService,
-		connections:  connections,
-		subsWg:       subsWg,
-		log:          log,
-		subsPool:     subsPool,
-		wsService:    wsService,
-		ctx:          ctx,
+		RedisService:     RedisService,
+		connections:      connections,
+		subsWg:           subsWg,
+		log:              log,
+		subsPool:         subsPool,
+		wsService:        wsService,
+		ctx:              ctx,
+		allowedReceivers: allowedReceivers,
 	}
 }
 
@@ -89,7 +92,7 @@ func (e *EventSub) handleMessage(msg []byte) {
 		e.log.Error(errors.New(fmt.Sprintf("cant unmarshal message: %v", msg)).Error())
 	}
 
-	sub, ok := event.AllowedSubs[baseEvent.Event]
+	receiver, ok := e.allowedReceivers[baseEvent.Event]
 	if !ok {
 		e.log.Error(errors.New(fmt.Sprintf("event: %s doesnt support", baseEvent.Event)).Error())
 	}
@@ -107,7 +110,7 @@ func (e *EventSub) handleMessage(msg []byte) {
 		return
 	}
 
-	err := sub(msg, conn, e.wsService).Run()
+	err := receiver.Receive(msg, conn)
 	if err != nil {
 		e.log.Error(errors.New("handled error while sending message").Error())
 	}

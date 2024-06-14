@@ -8,37 +8,47 @@ import (
 	"net"
 	"os"
 	"sync"
-	"websocket-confee/internal/adapters"
 
+	"websocket-confee/internal/adapters"
 	"websocket-confee/internal/models"
-	"websocket-confee/internal/services/event/publish"
+	"websocket-confee/internal/services/event"
 )
 
-type wsServiceInterface interface {
-	WriteServerBinary(msg []byte, conn net.Conn) error
-	WriteServerClose(msg []byte, conn net.Conn) error
-	ReadClientMessage(reader adapters.ReaderInterface) ([]byte, error)
-	NewReader(conn net.Conn) adapters.ReaderInterface
-}
-type authHandlerInterface interface {
-	Handle(conn net.Conn, msg []byte) error
-}
+type (
+	wsServiceInterface interface {
+		WriteServerBinary(msg []byte, conn net.Conn) error
+		WriteServerClose(msg []byte, conn net.Conn) error
+		ReadClientMessage(reader adapters.ReaderInterface) ([]byte, error)
+		NewReader(conn net.Conn) adapters.ReaderInterface
+	}
+	redisServiceInterface interface {
+		HGet(key, field string) adapters.StringCmdInterface
+	}
 
-type loggerInterface interface {
-	Error(err string)
-}
+	loggerInterface interface {
+		Error(err string)
+	}
 
-type Handler struct {
-	redis        redisServiceInterface
-	connections  map[int]net.Conn
-	connWg       *sync.WaitGroup
-	connPool     chan struct{}
-	logger       loggerInterface
-	wsService    wsServiceInterface
-	rwConnsMutex *sync.RWMutex
-	ctx          context.Context
-	authHandler  authHandlerInterface
-}
+	AuthEvent struct {
+		Event string   `json:"event" validate:"required"`
+		Data  AuthData `json:"data" validate:"required"`
+	}
+	AuthData struct {
+		Token string `json:"token" validate:"required"`
+	}
+
+	Handler struct {
+		redis             redisServiceInterface
+		connections       map[int]net.Conn
+		connWg            *sync.WaitGroup
+		connPool          chan struct{}
+		logger            loggerInterface
+		wsService         wsServiceInterface
+		rwConnsMutex      *sync.RWMutex
+		ctx               context.Context
+		allowedPublishers map[string]event.Publisher
+	}
+)
 
 func NewHandler(
 	redisService redisServiceInterface,
@@ -49,18 +59,18 @@ func NewHandler(
 	connWg *sync.WaitGroup,
 	connMutex *sync.RWMutex,
 	ctx context.Context,
-	authHandler authHandlerInterface,
+	allowedPublishers map[string]event.Publisher,
 ) *Handler {
 	return &Handler{
-		redis:        redisService,
-		connections:  connections,
-		connWg:       connWg,
-		connPool:     connPool,
-		logger:       logger,
-		wsService:    wsService,
-		rwConnsMutex: connMutex,
-		ctx:          ctx,
-		authHandler:  authHandler,
+		redis:             redisService,
+		connections:       connections,
+		connWg:            connWg,
+		connPool:          connPool,
+		logger:            logger,
+		wsService:         wsService,
+		rwConnsMutex:      connMutex,
+		ctx:               ctx,
+		allowedPublishers: allowedPublishers,
 	}
 }
 
@@ -121,19 +131,18 @@ func (h *Handler) Handle(conn net.Conn) {
 
 				switch baseEvent.Event {
 				case models.Auth:
-					err = h.authHandler.Handle(conn, msg)
+					err = h.handleAuth(msg, conn)
 					if err != nil {
 						h.logger.Error(errors.New("403 forbidden").Error())
 						return
 					}
 				default:
-					publisher, err := publish.NewPublishDirector(h.redis, baseEvent.Event, msg)
-					if err != nil {
-						h.logger.Error(errors.New(fmt.Sprintf("something wrong while create pub director %s", err.Error())).Error())
-						return
+					publisher, ok := h.allowedPublishers[baseEvent.Event]
+					if !ok {
+						h.logger.Error(errors.New(fmt.Sprintf("event: %s doesnt support", baseEvent.Event)).Error())
 					}
 
-					if err = publisher.Run(); err != nil {
+					if err = publisher.Publish(msg); err != nil {
 						h.logger.Error(errors.New(fmt.Sprintf("something wrong while publishing message %s", err.Error())).Error())
 						return
 					}
@@ -142,6 +151,36 @@ func (h *Handler) Handle(conn net.Conn) {
 		}
 		msgWg.Wait()
 	}()
+}
+
+func (h *Handler) handleAuth(msg []byte, conn net.Conn) error {
+	authEvent := &AuthEvent{}
+
+	err := json.Unmarshal(msg, authEvent)
+	if err != nil {
+		return errors.New(fmt.Sprintf("cant unmarhsal %s", err))
+	}
+
+	userId, err := h.redis.HGet(authEvent.Data.Token, "user_id").Int()
+	if err != nil {
+		return errors.New(fmt.Sprintf("403 forbidden %s", err))
+	}
+
+	h.rwConnsMutex.Lock()
+	h.connections[userId] = conn
+	h.rwConnsMutex.Unlock()
+
+	successResponse, _ := json.Marshal(models.SuccessResponse{
+		Message: "auth success",
+		Code:    200,
+	})
+
+	err = h.wsService.WriteServerBinary(successResponse, conn)
+	if err != nil {
+		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
+	}
+
+	return nil
 }
 
 func (h *Handler) handleError(err error, conn net.Conn) {

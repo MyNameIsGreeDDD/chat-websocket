@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"websocket-confee/internal/services/event"
 
 	"github.com/golang/mock/gomock"
 	r_client "github.com/redis/go-redis/v9"
@@ -86,6 +87,7 @@ func TestSuccessRun(t *testing.T) {
 		make(chan struct{}, 5),
 		&sync.WaitGroup{},
 		context.Background(),
+		map[string]event.Receiver{},
 	)
 
 	eventSub.Run()

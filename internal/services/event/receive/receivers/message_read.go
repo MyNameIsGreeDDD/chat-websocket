@@ -36,17 +36,15 @@ type (
 	}
 )
 
-func NewMessageReadReceiver(msg []byte, conn net.Conn, wsService wsServiceInterface) *MessageReadReceiver {
+func NewMessageReadReceiver(wsService wsServiceInterface) *MessageReadReceiver {
 	return &MessageReadReceiver{
-		Message:   msg,
-		Conn:      conn,
 		wsService: wsService,
 	}
 }
 
-func (m *MessageReadReceiver) Run() error {
+func (m *MessageReadReceiver) Receive(msg []byte, conn net.Conn) error {
 	messageReadEvent := &MessageReadEvent{}
-	err := json.Unmarshal(m.Message, messageReadEvent)
+	err := json.Unmarshal(msg, messageReadEvent)
 	if err != nil {
 		return errors.New(fmt.Sprintf("cant unmarshal %s", err))
 	}
@@ -56,7 +54,7 @@ func (m *MessageReadReceiver) Run() error {
 		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
 	}
 
-	err = m.wsService.WriteServerBinary(m.Message, m.Conn)
+	err = m.wsService.WriteServerBinary(msg, conn)
 	if err != nil {
 		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
 	}

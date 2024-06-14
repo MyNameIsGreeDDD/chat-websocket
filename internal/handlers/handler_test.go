@@ -73,3 +73,39 @@ func TestSuccessHandle(t *testing.T) {
 
 	time.Sleep(40 * time.Nanosecond)
 }
+
+//func TestAuth_Run(t *testing.T) {
+//	mocks := setUpAuthMocks(t)
+//
+//	token := "asdas"
+//	userId := 1
+//
+//	mockStringCmd := redis.StringCmd{}
+//	mockStringCmd.SetVal(strconv.Itoa(userId))
+//
+//	mocks.mockRedis.EXPECT().HGet(token, "user_id").Return(&mockStringCmd).Times(1)
+//	mocks.mockLog.EXPECT().Error(gomock.Any()).Times(0)
+//
+//	event := AuthEvent{
+//		Event: models.Auth,
+//		Data: AuthData{
+//			Token: token,
+//		},
+//	}
+//	msg, _ := json.Marshal(event)
+//
+//	_, clientConn := net.Pipe()
+//	connections := make(map[int]net.Conn, 1)
+//
+//	expectedMsg, _ := json.Marshal(models.SuccessResponse{
+//		Message: "auth success",
+//		Code:    200,
+//	})
+//
+//	mocks.mockWsService.EXPECT().WriteServerBinary(expectedMsg, clientConn).Times(1).Return(nil)
+//
+//	err := NewAuthHandler(mocks.mockRedis, mocks.mockWsService, connections, &sync.RWMutex{}).Handle(clientConn, msg)
+//
+//	assert.NoError(t, err)
+//	assert.Equal(t, connections[userId], clientConn)
+//}
