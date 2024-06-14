@@ -3,11 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/golang/mock/gomock"
 	"net"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/golang/mock/gomock"
 
 	mock_handlers "websocket-confee/internal/handlers/mocks"
 	"websocket-confee/internal/services/event/publish/publishers"

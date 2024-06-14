@@ -4,14 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"net"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type (
 	wsServiceInterface interface {
-		WriteClientBinary(msg []byte, conn net.Conn) error
+		WriteServerBinary(msg []byte, conn net.Conn) error
 	}
+
 	MessageReadReceiver struct {
 		Message   []byte
 		Conn      net.Conn
@@ -54,7 +56,7 @@ func (m *MessageReadReceiver) Run() error {
 		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
 	}
 
-	err = m.wsService.WriteClientBinary(m.Message, m.Conn)
+	err = m.wsService.WriteServerBinary(m.Message, m.Conn)
 	if err != nil {
 		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
 	}

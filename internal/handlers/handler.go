@@ -15,8 +15,8 @@ import (
 )
 
 type wsServiceInterface interface {
-	WriteClientBinary(msg []byte, conn net.Conn) error
-	WriteClientClose(msg []byte, conn net.Conn) error
+	WriteServerBinary(msg []byte, conn net.Conn) error
+	WriteServerClose(msg []byte, conn net.Conn) error
 	ReadClientMessage(reader adapters.ReaderInterface) ([]byte, error)
 	NewReader(conn net.Conn) adapters.ReaderInterface
 }
@@ -142,7 +142,7 @@ func (h *CopyHandler) Handle() {
 }
 
 func (h *CopyHandler) handleError(err error) {
-	h.wsService.WriteClientClose([]byte("connection closed"), h.conn)
+	h.wsService.WriteServerClose([]byte("connection closed"), h.conn)
 	h.conn.Close()
 	h.logger.Error(fmt.Sprintf("failed handle message with error: %s", err.Error()))
 }

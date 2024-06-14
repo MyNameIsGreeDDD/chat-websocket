@@ -18,7 +18,7 @@ type redisServiceInterface interface {
 	Subscribe(channel ...string) adapters.PubSubInterface
 }
 type wsServiceInterface interface {
-	WriteClientBinary(msg []byte, conn net.Conn) error
+	WriteServerBinary(msg []byte, conn net.Conn) error
 }
 type loggerInterface interface {
 	Error(msg string)

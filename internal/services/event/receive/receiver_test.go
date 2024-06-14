@@ -76,7 +76,7 @@ func TestSuccessRun(t *testing.T) {
 
 	mocks.mockRedis.EXPECT().Subscribe(gomock.Any()).Return(mockPubSub)
 	mocks.mockLog.EXPECT().Error(gomock.Any()).Times(0)
-	mocks.mockWsService.EXPECT().WriteClientBinary(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+	mocks.mockWsService.EXPECT().WriteServerBinary(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 	eventSub := RegisterEventListener(
 		mocks.mockRedis,

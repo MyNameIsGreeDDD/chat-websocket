@@ -2,18 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
 	"net"
 	"strconv"
 	"sync"
 	"testing"
+	"websocket-confee/internal/models"
 
 	"github.com/golang/mock/gomock"
-	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
-
 	mock_adapters "websocket-confee/internal/adapters/mocks"
 	mock_handlers "websocket-confee/internal/handlers/mocks"
-	"websocket-confee/internal/models"
 )
 
 type authTest struct {
@@ -64,7 +63,7 @@ func TestAuth_Run(t *testing.T) {
 		Code:    200,
 	})
 
-	mocks.mockWsService.EXPECT().WriteClientBinary(expectedMsg, clientConn).Times(1).Return(nil)
+	mocks.mockWsService.EXPECT().WriteServerBinary(expectedMsg, clientConn).Times(1).Return(nil)
 
 	NewAuthHandler(mocks.mockRedis, mocks.mockWsService, connections, &sync.RWMutex{}, clientConn, msg).Handle()
 	assert.Equal(t, connections[userId], clientConn)

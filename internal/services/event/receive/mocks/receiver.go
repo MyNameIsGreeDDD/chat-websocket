@@ -76,18 +76,18 @@ func (m *MockwsServiceInterface) EXPECT() *MockwsServiceInterfaceMockRecorder {
 	return m.recorder
 }
 
-// WriteClientBinary mocks base method.
-func (m *MockwsServiceInterface) WriteClientBinary(msg []byte, conn net.Conn) error {
+// WriteServerBinary mocks base method.
+func (m *MockwsServiceInterface) WriteServerBinary(msg []byte, conn net.Conn) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteClientBinary", msg, conn)
+	ret := m.ctrl.Call(m, "WriteServerBinary", msg, conn)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteClientBinary indicates an expected call of WriteClientBinary.
-func (mr *MockwsServiceInterfaceMockRecorder) WriteClientBinary(msg, conn interface{}) *gomock.Call {
+// WriteServerBinary indicates an expected call of WriteServerBinary.
+func (mr *MockwsServiceInterfaceMockRecorder) WriteServerBinary(msg, conn interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteClientBinary", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteClientBinary), msg, conn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteServerBinary", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteServerBinary), msg, conn)
 }
 
 // MockloggerInterface is a mock of loggerInterface interface.

@@ -64,32 +64,32 @@ func (mr *MockwsServiceInterfaceMockRecorder) ReadClientMessage(reader interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadClientMessage", reflect.TypeOf((*MockwsServiceInterface)(nil).ReadClientMessage), reader)
 }
 
-// WriteClientBinary mocks base method.
-func (m *MockwsServiceInterface) WriteClientBinary(msg []byte, conn net.Conn) error {
+// WriteServerBinary mocks base method.
+func (m *MockwsServiceInterface) WriteServerBinary(msg []byte, conn net.Conn) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteClientBinary", msg, conn)
+	ret := m.ctrl.Call(m, "WriteServerBinary", msg, conn)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteClientBinary indicates an expected call of WriteClientBinary.
-func (mr *MockwsServiceInterfaceMockRecorder) WriteClientBinary(msg, conn interface{}) *gomock.Call {
+// WriteServerBinary indicates an expected call of WriteServerBinary.
+func (mr *MockwsServiceInterfaceMockRecorder) WriteServerBinary(msg, conn interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteClientBinary", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteClientBinary), msg, conn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteServerBinary", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteServerBinary), msg, conn)
 }
 
-// WriteClientClose mocks base method.
-func (m *MockwsServiceInterface) WriteClientClose(msg []byte, conn net.Conn) error {
+// WriteServerClose mocks base method.
+func (m *MockwsServiceInterface) WriteServerClose(msg []byte, conn net.Conn) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteClientClose", msg, conn)
+	ret := m.ctrl.Call(m, "WriteServerClose", msg, conn)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteClientClose indicates an expected call of WriteClientClose.
-func (mr *MockwsServiceInterfaceMockRecorder) WriteClientClose(msg, conn interface{}) *gomock.Call {
+// WriteServerClose indicates an expected call of WriteServerClose.
+func (mr *MockwsServiceInterfaceMockRecorder) WriteServerClose(msg, conn interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteClientClose", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteClientClose), msg, conn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteServerClose", reflect.TypeOf((*MockwsServiceInterface)(nil).WriteServerClose), msg, conn)
 }
 
 // MockloggerInterface is a mock of loggerInterface interface.

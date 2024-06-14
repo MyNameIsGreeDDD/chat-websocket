@@ -73,7 +73,7 @@ func (a *Auth) Handle() error {
 		Code:    200,
 	})
 
-	err = a.wsService.WriteClientBinary(successResponse, a.connection)
+	err = a.wsService.WriteServerBinary(successResponse, a.connection)
 	if err != nil {
 		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
 	}

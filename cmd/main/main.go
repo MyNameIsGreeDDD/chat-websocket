@@ -32,14 +32,6 @@ func main() {
 	wsService := websocket.NewWebSocketService()
 	log := logger.NewLogger()
 
-	if os.Getenv("APP") == "dev" {
-		fmt.Println("Starting pprof on :6060")
-		err := http.ListenAndServe("localhost:6060", nil)
-		if err != nil {
-			fmt.Println("cant start pprof")
-		}
-	}
-
 	db, err := strconv.Atoi(os.Getenv("REDIS_DB"))
 	if err != nil {
 		panic("cant start redis service")
@@ -67,6 +59,16 @@ func main() {
 		panic("failed listen")
 	}
 
+	if os.Getenv("APP_ENV") == "dev" {
+		go func() {
+			fmt.Println("Starting pprof on :6060")
+			err := http.ListenAndServe("localhost:6060", nil)
+			if err != nil {
+				fmt.Println("cant start pprof")
+			}
+		}()
+	}
+
 	u := &ws.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -75,7 +77,7 @@ func main() {
 	connWg := sync.WaitGroup{}
 	connsPool := make(chan struct{}, CountConnections)
 
-	initGraceFullShutDown(&connWg, &subsWG, &ln, connections, log, wsService, globalCancel)
+	initGraceFullShutDown(&connWg, &subsWG, ln, connections, log, wsService, globalCancel)
 
 	connMutex := &sync.RWMutex{}
 	publisherCtx, _ := context.WithCancel(globalCtx)
@@ -84,8 +86,6 @@ func main() {
 		conn, err := wsService.AcceptConnection(ln, u)
 		if err != nil {
 			log.Error(fmt.Sprintf("error while accept connection: %s", err))
-			conn.Close()
-
 			continue
 		}
 
@@ -108,7 +108,7 @@ func main() {
 
 func initGraceFullShutDown(
 	consWg, subsWg *sync.WaitGroup,
-	tcpConn *net.Listener,
+	tcpConn net.Listener,
 	connections map[int]net.Conn,
 	logger *logger.Logger,
 	wsService *websocket.Service,
@@ -135,14 +135,14 @@ func initGraceFullShutDown(
 				defer func() { <-connPool }()
 				defer connWG.Done()
 
-				wsService.WriteClientBinary([]byte("connection closed"), conn)
+				wsService.WriteServerBinary([]byte("connection closed"), conn)
 			}()
 		}
 
 		connWG.Wait()
 		consWg.Wait()
 		subsWg.Wait()
-		(*tcpConn).Close()
+		tcpConn.Close()
 
 		fmt.Println("Graceful shutdown окончен")
 		os.Exit(0)

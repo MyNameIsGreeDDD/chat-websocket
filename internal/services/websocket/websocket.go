@@ -22,37 +22,30 @@ func NewWebSocketService() *Service {
 func (s *Service) AcceptConnection(ln net.Listener, u *ws.Upgrader) (net.Conn, error) {
 	conn, err := ln.Accept()
 	if err != nil {
-		conn.Close()
-
 		return nil, err
 	}
 
 	_, err = u.Upgrade(conn)
 	if err != nil {
-		conn.Close()
 		return nil, err
 	}
 
 	return conn, nil
 }
 
-func (s *Service) WriteClientText(msg []byte, conn net.Conn) error {
-	return s.writeClientMessage(msg, conn, ws.OpText)
+func (s *Service) WriteServerClose(msg []byte, conn net.Conn) error {
+	return s.writeMessage(msg, conn, ws.OpClose, false)
 }
 
-func (s *Service) WriteClientClose(msg []byte, conn net.Conn) error {
-	return s.writeClientMessage(msg, conn, ws.OpClose)
+func (s *Service) WriteServerBinary(msg []byte, conn net.Conn) error {
+	return s.writeMessage(msg, conn, ws.OpBinary, false)
 }
 
-func (s *Service) WriteClientBinary(msg []byte, conn net.Conn) error {
-	return s.writeClientMessage(msg, conn, ws.OpBinary)
-}
-
-func (s *Service) writeClientMessage(msg []byte, conn net.Conn, opCode ws.OpCode) error {
+func (s *Service) writeMessage(msg []byte, conn net.Conn, opCode ws.OpCode, masked bool) error {
 	hr := ws.Header{
 		Fin:    true,
 		OpCode: opCode,
-		Masked: true,
+		Masked: masked,
 		Length: int64(len(msg)),
 	}
 

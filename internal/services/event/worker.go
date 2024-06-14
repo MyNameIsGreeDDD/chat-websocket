@@ -2,6 +2,7 @@ package event
 
 import (
 	"net"
+
 	"websocket-confee/internal/adapters"
 	"websocket-confee/internal/models"
 	"websocket-confee/internal/services/event/publish/publishers"
@@ -18,7 +19,7 @@ type (
 		HGet(key, field string) adapters.StringCmdInterface
 	}
 	wsServiceInterface interface {
-		WriteClientBinary(msg []byte, conn net.Conn) error
+		WriteServerBinary(msg []byte, conn net.Conn) error
 	}
 
 	CreatePubFn func(
