@@ -20,21 +20,24 @@ type wsServiceInterface interface {
 	ReadClientMessage(reader adapters.ReaderInterface) ([]byte, error)
 	NewReader(conn net.Conn) adapters.ReaderInterface
 }
+type authHandlerInterface interface {
+	Handle(conn net.Conn, msg []byte) error
+}
 
 type loggerInterface interface {
 	Error(err string)
 }
 
-type CopyHandler struct {
+type Handler struct {
 	redis        redisServiceInterface
 	connections  map[int]net.Conn
-	conn         net.Conn
 	connWg       *sync.WaitGroup
 	connPool     chan struct{}
 	logger       loggerInterface
 	wsService    wsServiceInterface
 	rwConnsMutex *sync.RWMutex
 	ctx          context.Context
+	authHandler  authHandlerInterface
 }
 
 func NewHandler(
@@ -44,24 +47,24 @@ func NewHandler(
 	connections map[int]net.Conn,
 	connPool chan struct{},
 	connWg *sync.WaitGroup,
-	conn net.Conn,
 	connMutex *sync.RWMutex,
 	ctx context.Context,
-) *CopyHandler {
-	return &CopyHandler{
+	authHandler authHandlerInterface,
+) *Handler {
+	return &Handler{
 		redis:        redisService,
 		connections:  connections,
-		conn:         conn,
 		connWg:       connWg,
 		connPool:     connPool,
 		logger:       logger,
 		wsService:    wsService,
 		rwConnsMutex: connMutex,
 		ctx:          ctx,
+		authHandler:  authHandler,
 	}
 }
 
-func (h *CopyHandler) Handle() {
+func (h *Handler) Handle(conn net.Conn) {
 	h.connWg.Add(1)
 	h.connPool <- struct{}{}
 
@@ -70,14 +73,14 @@ func (h *CopyHandler) Handle() {
 		defer func() { <-h.connPool }()
 		defer func() {
 			if r := recover(); r != nil {
-				h.handleError(errors.New(fmt.Sprintf(" Handled panic: %v/n", r)))
+				h.handleError(errors.New(fmt.Sprintf(" Handled panic: %v/n", r)), conn)
 			}
 		}()
 
 		msgWg := &sync.WaitGroup{}
 		msgHandlePool := make(chan struct{}, 2)
 
-		rd := h.wsService.NewReader(h.conn)
+		rd := h.wsService.NewReader(conn)
 
 		for {
 			msg, err := h.wsService.ReadClientMessage(rd)
@@ -96,7 +99,7 @@ func (h *CopyHandler) Handle() {
 					}
 				}
 
-				h.handleError(err)
+				h.handleError(err, conn)
 				continue
 			}
 
@@ -108,17 +111,17 @@ func (h *CopyHandler) Handle() {
 				defer func() { <-msgHandlePool }()
 				defer func() {
 					if r := recover(); r != nil {
-						h.handleError(errors.New(fmt.Sprintf(" Handled panic: %v/n", r)))
+						h.handleError(errors.New(fmt.Sprintf(" Handled panic: %v/n", r)), conn)
 					}
 				}()
 				baseEvent := models.BaseEvent{}
 				if err := json.Unmarshal(msg, &baseEvent); err != nil {
-					h.handleError(err)
+					h.handleError(err, conn)
 				}
 
 				switch baseEvent.Event {
 				case models.Auth:
-					err = NewAuthHandler(h.redis, h.wsService, h.connections, h.rwConnsMutex, h.conn, msg).Handle()
+					err = h.authHandler.Handle(conn, msg)
 					if err != nil {
 						h.logger.Error(errors.New("403 forbidden").Error())
 						return
@@ -141,8 +144,8 @@ func (h *CopyHandler) Handle() {
 	}()
 }
 
-func (h *CopyHandler) handleError(err error) {
-	h.wsService.WriteServerClose([]byte("connection closed"), h.conn)
-	h.conn.Close()
+func (h *Handler) handleError(err error, conn net.Conn) {
+	h.wsService.WriteServerClose([]byte("connection closed"), conn)
+	conn.Close()
 	h.logger.Error(fmt.Sprintf("failed handle message with error: %s", err.Error()))
 }

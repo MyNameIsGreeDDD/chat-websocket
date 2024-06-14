@@ -65,6 +65,8 @@ func TestAuth_Run(t *testing.T) {
 
 	mocks.mockWsService.EXPECT().WriteServerBinary(expectedMsg, clientConn).Times(1).Return(nil)
 
-	NewAuthHandler(mocks.mockRedis, mocks.mockWsService, connections, &sync.RWMutex{}, clientConn, msg).Handle()
+	err := NewAuthHandler(mocks.mockRedis, mocks.mockWsService, connections, &sync.RWMutex{}).Handle(clientConn, msg)
+
+	assert.NoError(t, err)
 	assert.Equal(t, connections[userId], clientConn)
 }

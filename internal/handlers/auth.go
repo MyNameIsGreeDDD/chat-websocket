@@ -20,9 +20,7 @@ type (
 		redis       redisServiceInterface
 		wsService   wsServiceInterface
 		connections map[int]net.Conn
-		rwMutex     *sync.RWMutex
-		connection  net.Conn
-		msg         []byte
+		connMutex   *sync.RWMutex
 	}
 	AuthEvent struct {
 		Event string   `json:"event" validate:"required"`
@@ -38,23 +36,20 @@ func NewAuthHandler(
 	wsService wsServiceInterface,
 	connections map[int]net.Conn,
 	rwMutex *sync.RWMutex,
-	conn net.Conn,
-	msg []byte,
+
 ) *Auth {
 	return &Auth{
 		connections: connections,
 		redis:       redis,
-		msg:         msg,
-		connection:  conn,
-		rwMutex:     rwMutex,
+		connMutex:   rwMutex,
 		wsService:   wsService,
 	}
 }
 
-func (a *Auth) Handle() error {
+func (a *Auth) Handle(conn net.Conn, msg []byte) error {
 	event := &AuthEvent{}
 
-	err := json.Unmarshal(a.msg, event)
+	err := json.Unmarshal(msg, event)
 	if err != nil {
 		return errors.New(fmt.Sprintf("cant unmarhsal %s", err))
 	}
@@ -64,16 +59,16 @@ func (a *Auth) Handle() error {
 		return errors.New(fmt.Sprintf("403 forbidden %s", err))
 	}
 
-	a.rwMutex.Lock()
-	a.connections[userId] = a.connection
-	a.rwMutex.Unlock()
+	a.connMutex.Lock()
+	a.connections[userId] = conn
+	a.connMutex.Unlock()
 
 	successResponse, _ := json.Marshal(models.SuccessResponse{
 		Message: "auth success",
 		Code:    200,
 	})
 
-	err = a.wsService.WriteServerBinary(successResponse, a.connection)
+	err = a.wsService.WriteServerBinary(successResponse, conn)
 	if err != nil {
 		return errors.New(fmt.Sprintf("something wrong while write message in worker: %s", err))
 	}

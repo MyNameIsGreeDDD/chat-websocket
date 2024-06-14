@@ -15,20 +15,22 @@ import (
 )
 
 type handlerTest struct {
-	ctrl          *gomock.Controller
-	mockRedis     *mock_handlers.MockredisServiceInterface
-	mockLog       *mock_handlers.MockloggerInterface
-	mockWsService *mock_handlers.MockwsServiceInterface
+	ctrl            *gomock.Controller
+	mockRedis       *mock_handlers.MockredisServiceInterface
+	mockLog         *mock_handlers.MockloggerInterface
+	mockWsService   *mock_handlers.MockwsServiceInterface
+	mockAuthHandler *mock_handlers.MockauthHandlerInterface
 }
 
 func setUpHandlerMocks(t *testing.T) *handlerTest {
 	ctrl := gomock.NewController(t)
 
 	return &handlerTest{
-		ctrl:          ctrl,
-		mockRedis:     mock_handlers.NewMockredisServiceInterface(ctrl),
-		mockLog:       mock_handlers.NewMockloggerInterface(ctrl),
-		mockWsService: mock_handlers.NewMockwsServiceInterface(ctrl),
+		ctrl:            ctrl,
+		mockRedis:       mock_handlers.NewMockredisServiceInterface(ctrl),
+		mockLog:         mock_handlers.NewMockloggerInterface(ctrl),
+		mockWsService:   mock_handlers.NewMockwsServiceInterface(ctrl),
+		mockAuthHandler: mock_handlers.NewMockauthHandlerInterface(ctrl),
 	}
 }
 
@@ -55,6 +57,7 @@ func TestSuccessHandle(t *testing.T) {
 	mocks.mockWsService.EXPECT().ReadClientMessage(gomock.Any()).Return(msg, nil).AnyTimes()
 	mocks.mockLog.EXPECT().Error(gomock.Any()).Times(0)
 	mocks.mockRedis.EXPECT().Publish(msg).AnyTimes()
+	mocks.mockAuthHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).Times(0)
 
 	NewHandler(
 		mocks.mockRedis,
@@ -63,10 +66,10 @@ func TestSuccessHandle(t *testing.T) {
 		make(map[int]net.Conn, 1),
 		make(chan struct{}, 1),
 		&sync.WaitGroup{},
-		clientConn,
 		&sync.RWMutex{},
 		context.Background(),
-	).Handle()
+		mocks.mockAuthHandler,
+	).Handle(clientConn)
 
-	time.Sleep(20 * time.Nanosecond)
+	time.Sleep(40 * time.Nanosecond)
 }

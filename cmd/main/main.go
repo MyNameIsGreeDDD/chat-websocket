@@ -82,6 +82,25 @@ func main() {
 	connMutex := &sync.RWMutex{}
 	publisherCtx, _ := context.WithCancel(globalCtx)
 
+	authHandler := handlers.NewAuthHandler(
+		redisService,
+		wsService,
+		connections,
+		connMutex,
+	)
+
+	mainEventHandler := handlers.NewHandler(
+		redisService,
+		wsService,
+		log,
+		connections,
+		connsPool,
+		&connWg,
+		connMutex,
+		publisherCtx,
+		authHandler,
+	)
+
 	for {
 		conn, err := wsService.AcceptConnection(ln, u)
 		if err != nil {
@@ -89,17 +108,7 @@ func main() {
 			continue
 		}
 
-		handlers.NewHandler(
-			redisService,
-			wsService,
-			log,
-			connections,
-			connsPool,
-			&connWg,
-			conn,
-			connMutex,
-			publisherCtx,
-		).Handle()
+		mainEventHandler.Handle(conn)
 	}
 
 	connWg.Wait()
