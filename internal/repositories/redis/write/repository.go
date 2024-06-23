@@ -2,8 +2,7 @@ package write
 
 import (
 	"context"
-	"encoding/json"
-	"net"
+	"errors"
 	"strconv"
 	"time"
 
@@ -24,12 +23,11 @@ func (w *RedisWriteRepository) Publish(message []byte, channel string) error {
 	return (*w.client).Publish(context.Background(), channel, message).Err()
 }
 
-func (w *RedisWriteRepository) Store(userId int, conn *net.Conn) error {
-	c, err := json.Marshal(conn)
+func (w *RedisWriteRepository) StoreSessionId(sessionId string, userId int) error {
+	err := (*w.client).Set(context.Background(), strconv.Itoa(userId), sessionId, 24*time.Hour).Err()
 	if err != nil {
-		return err
+		return errors.New("failed store session_id for user_id: " + strconv.Itoa(userId))
 	}
 
-	_, err = (*w.client).Set(context.Background(), strconv.Itoa(userId), c, 7*24*time.Hour).Result()
-	return err
+	return nil
 }

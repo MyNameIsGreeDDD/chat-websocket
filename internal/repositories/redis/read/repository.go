@@ -2,9 +2,10 @@ package read
 
 import (
 	"context"
-	"github.com/redis/go-redis/v9"
 	"net"
-	"strconv"
+
+	"github.com/redis/go-redis/v9"
+
 	"websocket-confee/internal/adapters"
 )
 
@@ -25,18 +26,9 @@ func NewRedisReadRepository(client *redis.Client) *RedisReadRepository {
 func (r *RedisReadRepository) Subscribe(channel ...string) adapters.PubSubInterface {
 	return (*r.client).Subscribe(context.Background(), channel...)
 }
-
-func (r *RedisReadRepository) GetConnectionByUserId(userId int) (*net.Conn, error) {
-	var userConn UserConn
-
-	_, err := (*r.client).Get(context.Background(), strconv.Itoa(userId)).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	return &userConn.connection, nil
-}
-
 func (r *RedisReadRepository) HGet(key, field string) adapters.StringCmdInterface {
 	return (*r.client).HGet(context.Background(), key, field)
+}
+func (w *RedisReadRepository) GetUserIdBySessionId(sessionId string) (int, error) {
+	return (*w.client).Get(context.Background(), sessionId).Int()
 }

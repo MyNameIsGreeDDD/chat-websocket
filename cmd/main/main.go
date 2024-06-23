@@ -11,18 +11,18 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"websocket-confee/internal/models"
-	"websocket-confee/internal/services/event"
-	"websocket-confee/internal/services/event/publish/publishers"
-	"websocket-confee/internal/services/event/receive/receivers"
 
 	"github.com/gobwas/ws"
 	r_client "github.com/redis/go-redis/v9"
 
 	"websocket-confee/internal/handlers"
+	"websocket-confee/internal/models"
 	"websocket-confee/internal/repositories/redis/read"
 	"websocket-confee/internal/repositories/redis/write"
+	"websocket-confee/internal/services/event"
+	"websocket-confee/internal/services/event/publish/publishers"
 	"websocket-confee/internal/services/event/receive"
+	"websocket-confee/internal/services/event/receive/receivers"
 	"websocket-confee/internal/services/logger"
 	r_service "websocket-confee/internal/services/redis"
 	"websocket-confee/internal/services/websocket"
@@ -61,6 +61,8 @@ func main() {
 	receive.RegisterEventListener(redisService, wsService, log, connections, subsPool, &subsWG, listenerCtx, allowedReceivers).Run()
 
 	ln, err := net.Listen("tcp", "localhost:8080")
+	fmt.Println("Start listen on :8080")
+
 	if err != nil {
 		panic("failed listen")
 	}

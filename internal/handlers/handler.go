@@ -23,6 +23,9 @@ type (
 	}
 	redisServiceInterface interface {
 		HGet(key, field string) adapters.StringCmdInterface
+		GetUserIdBySessionId(sessionId string) (int, error)
+		Publish(message interface{}) error
+		StoreSessionId(sessionId string, userId int) error
 	}
 
 	loggerInterface interface {
@@ -35,6 +38,13 @@ type (
 	}
 	AuthData struct {
 		Token string `json:"token" validate:"required"`
+	}
+	ConnectedEvent struct {
+		Event string        `json:"event" validate:"required"`
+		Data  ConnectedData `json:"data" validate:"required"`
+	}
+	ConnectedData struct {
+		SessionID string `json:"session_id" validate:"required"`
 	}
 
 	Handler struct {
@@ -99,7 +109,7 @@ func (h *Handler) Handle(conn net.Conn) {
 					// Эта ошибка может появится только при установленном ReadDeadLine. Она лишь означает что
 					// в установленное время не произашла запись. Нам эта ошибка нужна,
 					// чтобы тригерить проверку ниже, срабатывающией при падении приложения. Если этого не будет,
-					// то graceful shutdown(gc) будет крутиться вечно для каждого обработчика сообщения и gc не закончится.
+					// то graceful shutdown(gs) будет крутиться вечно для каждого обработчика сообщения и gs не закончится.
 
 					select {
 					case <-h.ctx.Done():
@@ -137,9 +147,16 @@ func (h *Handler) Handle(conn net.Conn) {
 						return
 					}
 				default:
+					_, err := h.redis.GetUserIdBySessionId(baseEvent.SessionId)
+					if err != nil {
+						h.handleError(errors.New("403 forbidden"), conn)
+						return
+					}
+
 					publisher, ok := h.allowedPublishers[baseEvent.Event]
 					if !ok {
 						h.logger.Error(errors.New(fmt.Sprintf("event: %s doesnt support", baseEvent.Event)).Error())
+						return
 					}
 
 					if err = publisher.Publish(msg); err != nil {
@@ -162,13 +179,29 @@ func (h *Handler) handleAuth(msg []byte, conn net.Conn) error {
 	}
 
 	userId, err := h.redis.HGet(authEvent.Data.Token, "user_id").Int()
-	if err != nil {
+	sessionId := h.redis.HGet(authEvent.Data.Token, "session_id").String()
+	if err != nil || sessionId == "" {
 		return errors.New(fmt.Sprintf("403 forbidden %s", err))
 	}
 
 	h.rwConnsMutex.Lock()
 	h.connections[userId] = conn
 	h.rwConnsMutex.Unlock()
+
+	err = h.redis.StoreSessionId(sessionId, userId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("cant store session id in handler %s", err))
+	}
+
+	err = h.redis.Publish(&ConnectedEvent{
+		Event: models.Connected,
+		Data: ConnectedData{
+			SessionID: sessionId,
+		},
+	})
+	if err != nil {
+		return errors.New(fmt.Sprintf("something wrong while write connected event in redis %s", err))
+	}
 
 	successResponse, _ := json.Marshal(models.SuccessResponse{
 		Message: "auth success",
@@ -184,7 +217,10 @@ func (h *Handler) handleAuth(msg []byte, conn net.Conn) error {
 }
 
 func (h *Handler) handleError(err error, conn net.Conn) {
-	h.wsService.WriteServerClose([]byte("connection closed"), conn)
-	conn.Close()
+	if conn != nil {
+		h.wsService.WriteServerClose([]byte("connection closed"), conn)
+		conn.Close()
+	}
+
 	h.logger.Error(fmt.Sprintf("failed handle message with error: %s", err.Error()))
 }

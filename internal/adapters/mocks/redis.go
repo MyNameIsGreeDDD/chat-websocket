@@ -89,3 +89,17 @@ func (mr *MockStringCmdInterfaceMockRecorder) Int() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Int", reflect.TypeOf((*MockStringCmdInterface)(nil).Int))
 }
+
+// String mocks base method.
+func (m *MockStringCmdInterface) String() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "String")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// String indicates an expected call of String.
+func (mr *MockStringCmdInterfaceMockRecorder) String() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockStringCmdInterface)(nil).String))
+}

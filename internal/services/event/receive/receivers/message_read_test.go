@@ -46,6 +46,6 @@ func TestSuccessRunMessageRead(t *testing.T) {
 	clientConn, _ := net.Dial("tcp", "localhost:8080")
 
 	mocks.mockWsService.EXPECT().WriteServerBinary(marshalMsg, clientConn).Times(1).Return(nil)
-	err := NewMessageReadReceiver(marshalMsg, clientConn, mocks.mockWsService).Run()
+	err := NewMessageReadReceiver(mocks.mockWsService).Receive(marshalMsg, clientConn)
 	assert.NoError(t, err)
 }

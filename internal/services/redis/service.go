@@ -2,8 +2,9 @@ package redis
 
 import (
 	"encoding/json"
-	"net"
+	"errors"
 	"os"
+
 	"websocket-confee/internal/adapters"
 )
 
@@ -12,13 +13,13 @@ var SubEventChannel = os.Getenv("SUB_EVENTS_REDIS_CHANNEL")
 
 type writeRepositoryInterface interface {
 	Publish(message []byte, channel string) error
-	Store(userId int, conn *net.Conn) error
+	StoreSessionId(sessionId string, userId int) error
 }
 
 type readRepositoryInterface interface {
 	Subscribe(channel ...string) adapters.PubSubInterface
-	GetConnectionByUserId(userId int) (*net.Conn, error)
 	HGet(key, field string) adapters.StringCmdInterface
+	GetUserIdBySessionId(sessionId string) (int, error)
 }
 
 type loggerInterface interface {
@@ -63,6 +64,18 @@ func (s *Service) Subscribe(channel ...string) adapters.PubSubInterface {
 	return s.readRepository.Subscribe(channel...)
 }
 
-func (s *Service) GetConnectionByUserId(userId int) (*net.Conn, error) {
-	return s.readRepository.GetConnectionByUserId(userId)
+func (s *Service) StoreSessionId(sessionId string, userId int) error {
+	err := s.writeRepository.StoreSessionId(sessionId, userId)
+	if err != nil {
+		return errors.New("cant store session id in redis service with err: " + err.Error())
+	}
+
+	return nil
+}
+func (s *Service) GetUserIdBySessionId(sessionId string) (int, error) {
+	userId, err := s.readRepository.GetUserIdBySessionId(sessionId)
+	if err != nil {
+		return 0, errors.New("cant gets user_id by session_id: " + sessionId)
+	}
+	return userId, nil
 }

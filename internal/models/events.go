@@ -2,7 +2,8 @@ package models
 
 type (
 	BaseEvent struct {
-		Event string `json:"event"`
+		Event     string `json:"event" validate:"required"`
+		SessionId string `json:"session_id" validate:"required"`
 	}
 	BaseSubEvent struct {
 		Event  string `json:"event"`
@@ -17,4 +18,5 @@ type (
 const (
 	MessageRead = "MessageRead"
 	Auth        = "Auth"
+	Connected   = "Connected"
 )

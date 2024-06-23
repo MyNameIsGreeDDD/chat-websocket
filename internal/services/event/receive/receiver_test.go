@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"websocket-confee/internal/services/event"
 
 	"github.com/golang/mock/gomock"
 	r_client "github.com/redis/go-redis/v9"
@@ -15,6 +14,7 @@ import (
 
 	mock_adapters "websocket-confee/internal/adapters/mocks"
 	"websocket-confee/internal/models"
+	"websocket-confee/internal/services/event"
 	mock_receive "websocket-confee/internal/services/event/receive/mocks"
 	"websocket-confee/internal/services/event/receive/receivers"
 )
@@ -79,6 +79,9 @@ func TestSuccessRun(t *testing.T) {
 	mocks.mockLog.EXPECT().Error(gomock.Any()).Times(0)
 	mocks.mockWsService.EXPECT().WriteServerBinary(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
+	allowedReceivers := make(map[string]event.Receiver, 1)
+	allowedReceivers[models.MessageRead] = receivers.NewMessageReadReceiver(mocks.mockWsService)
+
 	eventSub := RegisterEventListener(
 		mocks.mockRedis,
 		mocks.mockWsService,
@@ -87,7 +90,7 @@ func TestSuccessRun(t *testing.T) {
 		make(chan struct{}, 5),
 		&sync.WaitGroup{},
 		context.Background(),
-		map[string]event.Receiver{},
+		allowedReceivers,
 	)
 
 	eventSub.Run()

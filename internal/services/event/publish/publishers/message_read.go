@@ -18,8 +18,9 @@ type (
 		RedisService redisService
 	}
 	MessageReadEvent struct {
-		Event string          `json:"event" validate:"required"`
-		Data  MessageReadData `json:"data" validate:"required"`
+		Event  string          `json:"event" validate:"required"`
+		UserId int             `json:"userId" validate:"required"`
+		Data   MessageReadData `json:"data" validate:"required"`
 	}
 	MessageReadData struct {
 		ChatId    int    `json:"chat_id" validate:"required"`

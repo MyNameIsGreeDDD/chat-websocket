@@ -11,26 +11,25 @@ import (
 	"github.com/golang/mock/gomock"
 
 	mock_handlers "websocket-confee/internal/handlers/mocks"
+	"websocket-confee/internal/services/event"
 	"websocket-confee/internal/services/event/publish/publishers"
 )
 
 type handlerTest struct {
-	ctrl            *gomock.Controller
-	mockRedis       *mock_handlers.MockredisServiceInterface
-	mockLog         *mock_handlers.MockloggerInterface
-	mockWsService   *mock_handlers.MockwsServiceInterface
-	mockAuthHandler *mock_handlers.MockauthHandlerInterface
+	ctrl          *gomock.Controller
+	mockRedis     *mock_handlers.MockredisServiceInterface
+	mockLog       *mock_handlers.MockloggerInterface
+	mockWsService *mock_handlers.MockwsServiceInterface
 }
 
 func setUpHandlerMocks(t *testing.T) *handlerTest {
 	ctrl := gomock.NewController(t)
 
 	return &handlerTest{
-		ctrl:            ctrl,
-		mockRedis:       mock_handlers.NewMockredisServiceInterface(ctrl),
-		mockLog:         mock_handlers.NewMockloggerInterface(ctrl),
-		mockWsService:   mock_handlers.NewMockwsServiceInterface(ctrl),
-		mockAuthHandler: mock_handlers.NewMockauthHandlerInterface(ctrl),
+		ctrl:          ctrl,
+		mockRedis:     mock_handlers.NewMockredisServiceInterface(ctrl),
+		mockLog:       mock_handlers.NewMockloggerInterface(ctrl),
+		mockWsService: mock_handlers.NewMockwsServiceInterface(ctrl),
 	}
 }
 
@@ -57,7 +56,6 @@ func TestSuccessHandle(t *testing.T) {
 	mocks.mockWsService.EXPECT().ReadClientMessage(gomock.Any()).Return(msg, nil).AnyTimes()
 	mocks.mockLog.EXPECT().Error(gomock.Any()).Times(0)
 	mocks.mockRedis.EXPECT().Publish(msg).AnyTimes()
-	mocks.mockAuthHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).Times(0)
 
 	NewHandler(
 		mocks.mockRedis,
@@ -68,7 +66,7 @@ func TestSuccessHandle(t *testing.T) {
 		&sync.WaitGroup{},
 		&sync.RWMutex{},
 		context.Background(),
-		mocks.mockAuthHandler,
+		map[string]event.Publisher{},
 	).Handle(clientConn)
 
 	time.Sleep(40 * time.Nanosecond)

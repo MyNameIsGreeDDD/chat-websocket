@@ -8,4 +8,5 @@ type PubSubInterface interface {
 
 type StringCmdInterface interface {
 	Int() (int, error)
+	String() string
 }
