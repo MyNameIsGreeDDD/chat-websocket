@@ -41,6 +41,10 @@ func (s *Service) WriteServerBinary(msg []byte, conn net.Conn) error {
 	return s.writeMessage(msg, conn, ws.OpBinary, false)
 }
 
+func (s *Service) WriteServerText(msg []byte, conn net.Conn) error {
+	return s.writeMessage(msg, conn, ws.OpText, false)
+}
+
 func (s *Service) writeMessage(msg []byte, conn net.Conn, opCode ws.OpCode, masked bool) error {
 	hr := ws.Header{
 		Fin:    true,

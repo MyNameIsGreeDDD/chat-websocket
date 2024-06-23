@@ -155,12 +155,17 @@ func initGraceFullShutDown(
 		for _, conn := range connections {
 			connWG.Add(1)
 			connPool <- struct{}{}
-			go func() {
+
+			go func(conn net.Conn) {
 				defer func() { <-connPool }()
 				defer connWG.Done()
 
+				if conn == nil {
+					return
+				}
+
 				wsService.WriteServerBinary([]byte("connection closed"), conn)
-			}()
+			}(conn)
 		}
 
 		connWG.Wait()

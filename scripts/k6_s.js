@@ -1,63 +1,63 @@
 import ws from 'k6/ws';
 import {check} from 'k6';
 
-let userCounter = 0; // Переменная для хранения текущего user_id
+export let options = {
+    vus: 100,
+    iterations: 100,
+    duration: '3s',
+};
 
 export default function () {
     const url = 'ws://localhost:8080';
-    const params = {tags: {my_tag: 'hello'}};
 
-    const response = ws.connect(url, params, function (socket) {
-        socket.on('open', function ()  {
-            userCounter++
-            console.log(`connected with user_id: ${userCounter}`);
+    const response = ws.connect(url, null, function (socket) {
+        socket.on('open', function () {
+            let userId = Math.floor(Math.random() * 1000000) + 1;
+            let readUserId = Math.floor(Math.random() * 1000000) + 1;
+            let sessionId = generateRandomString(10)
 
-            // Send Auth event
-            const authEvent = {
+            socket.send(JSON.stringify({
                 event: 'Auth',
-                user_id: userCounter,
+                user_id: userId,
+                session_id: sessionId,
                 data: {
-                    user_id: userCounter
+                    token: 'asdasd'
                 }
-            };
-            const jsonData = JSON.stringify(authEvent);
+            }));
 
-            socket.send(jsonData);
-            console.log('Auth event sent:', JSON.stringify(authEvent));
-
-            // // Send multiple MessageRead events
-            // for (let i = 1; i <= 5; i++) {
-            //     const messageReadEvent = {
-            //         event: 'MessageRead',
-            //         user_id: user_id,
-            //         data: {
-            //             chat_id: 1,
-            //             message_id: i,
-            //             session_id: 'asdasd'
-            //         }
-            //     };
-            //     socket.send(JSON.stringify(messageReadEvent));
-            //     console.log(`MessageRead event ${i} sent for user_id ${user_id}:`, JSON.stringify(messageReadEvent));
-            // }
+            for (let i = 1; i <= 5; i++) {
+                socket.send(
+                    JSON.stringify({
+                            event: 'MessageRead',
+                            user_id: userId,
+                            data: {
+                                info_for_client: {
+                                    chat_id: 1,
+                                    message_id: 1,
+                                    read_user_id: readUserId,
+                                }
+                            }
+                        }
+                    )
+                );
+            }
         });
 
-        socket.on('message', function (message) {
-            console.log('Message received: ');
-        });
-
-        socket.on('close', function () {
-            console.log('disconnected');
-        });
-
+        socket.on('message', function (message) {});
+        socket.on('close', function () {});
         socket.on('error', function (e) {
-            console.log('An unexpected error occurred: ', e.error());
         });
-
-        // Automatically close the connection after a short delay
-        socket.setTimeout(function () {
-            socket.close();
-        }, 10000); // Close the connection after 10 seconds
     });
 
-    check(response, {'status is 101': (r) => r && r === 101});
+    check(response, {'Статус код101': (r) => r && r.status === 101});
+}
+
+function generateRandomString(length) {
+    let result = '';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
 }

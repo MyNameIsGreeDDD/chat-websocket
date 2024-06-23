@@ -10,58 +10,34 @@ import (
 	"sync"
 	"time"
 
-	"websocket-confee/internal/adapters"
 	"websocket-confee/internal/models"
 	"websocket-confee/internal/services/event"
 )
 
 type (
-	wsServiceInterface interface {
-		WriteServerBinary(msg []byte, conn net.Conn) error
-		WriteServerClose(msg []byte, conn net.Conn) error
-		ReadClientMessage(reader adapters.ReaderInterface) ([]byte, error)
-		NewReader(conn net.Conn) adapters.ReaderInterface
-	}
-	redisServiceInterface interface {
-		HGet(key, field string) adapters.StringCmdInterface
-		GetUserIdBySessionId(sessionId string) (int, error)
-		Publish(message interface{}) error
-		StoreSessionId(sessionId string, userId int) error
-	}
-
-	loggerInterface interface {
-		Error(err string)
+	StressTestHandler struct {
+		redis              redisServiceInterface
+		connections        map[int]net.Conn
+		connWg             *sync.WaitGroup
+		connPool           chan struct{}
+		logger             loggerInterface
+		wsService          wsServiceInterface
+		rwConnsMutex       *sync.RWMutex
+		ctx                context.Context
+		allowedPublishers  map[string]event.Publisher
+		mockMessageChannel chan []byte
+		sync.RWMutex
 	}
 
-	AuthEvent struct {
-		Event string   `json:"event" validate:"required"`
-		Data  AuthData `json:"data" validate:"required"`
-	}
-	AuthData struct {
-		Token string `json:"token" validate:"required"`
-	}
-	ConnectedEvent struct {
-		Event string        `json:"event" validate:"required"`
-		Data  ConnectedData `json:"data" validate:"required"`
-	}
-	ConnectedData struct {
-		SessionID string `json:"session_id" validate:"required"`
-	}
-
-	Handler struct {
-		redis             redisServiceInterface
-		connections       map[int]net.Conn
-		connWg            *sync.WaitGroup
-		connPool          chan struct{}
-		logger            loggerInterface
-		wsService         wsServiceInterface
-		rwConnsMutex      *sync.RWMutex
-		ctx               context.Context
-		allowedPublishers map[string]event.Publisher
+	stressTestAuthEvent struct {
+		Event     string   `json:"event" validate:"required"`
+		Data      AuthData `json:"data" validate:"required"`
+		UserId    int      `json:"user_id" validate:"required"`
+		SessionId string   `json:"session_id" validate:"required"`
 	}
 )
 
-func NewHandler(
+func NewStressTestHandler(
 	redisService redisServiceInterface,
 	wsService wsServiceInterface,
 	logger loggerInterface,
@@ -71,21 +47,25 @@ func NewHandler(
 	connMutex *sync.RWMutex,
 	ctx context.Context,
 	allowedPublishers map[string]event.Publisher,
-) *Handler {
-	return &Handler{
-		redis:             redisService,
-		connections:       connections,
-		connWg:            connWg,
-		connPool:          connPool,
-		logger:            logger,
-		wsService:         wsService,
-		rwConnsMutex:      connMutex,
-		ctx:               ctx,
-		allowedPublishers: allowedPublishers,
+	mockMessageChannel chan []byte,
+) *StressTestHandler {
+	return &StressTestHandler{
+		redis:              redisService,
+		connections:        connections,
+		connWg:             connWg,
+		connPool:           connPool,
+		logger:             logger,
+		wsService:          wsService,
+		rwConnsMutex:       connMutex,
+		ctx:                ctx,
+		allowedPublishers:  allowedPublishers,
+		mockMessageChannel: mockMessageChannel,
 	}
 }
 
-func (h *Handler) Handle(conn net.Conn) {
+var count = 0
+
+func (h *StressTestHandler) Handle(conn net.Conn) {
 	h.connWg.Add(1)
 	h.connPool <- struct{}{}
 
@@ -124,7 +104,7 @@ func (h *Handler) Handle(conn net.Conn) {
 				}
 
 				h.handleError(err, conn)
-				continue
+				return
 			}
 
 			msgHandlePool <- struct{}{}
@@ -151,22 +131,24 @@ func (h *Handler) Handle(conn net.Conn) {
 						return
 					}
 				default:
-					_, err := h.redis.GetUserIdBySessionId(baseEvent.SessionId)
-					if err != nil {
-						h.handleError(errors.New("403 forbidden"), conn)
-						return
-					}
+					//_, err := h.redis.GetUserIdBySessionId(baseEvent.SessionId)
+					//if err != nil {
+					//	h.handleError(errors.New("403 forbidden"), conn)
+					//	return
+					//}
 
-					publisher, ok := h.allowedPublishers[baseEvent.Event]
+					_, ok := h.allowedPublishers[baseEvent.Event]
 					if !ok {
 						h.logger.Error(errors.New(fmt.Sprintf("event: %s doesnt support", baseEvent.Event)).Error())
 						return
 					}
 
-					if err = publisher.Publish(msg); err != nil {
-						h.logger.Error(errors.New(fmt.Sprintf("something wrong while publishing message %s", err.Error())).Error())
-						return
-					}
+					//Имитируем запись в pubsub
+					h.mockMessageChannel <- msg
+					//if err = publisher.Publish(msg); err != nil {
+					//	h.logger.Error(errors.New(fmt.Sprintf("something wrong while publishing message %s", err.Error())).Error())
+					//	return
+					//}
 				}
 			}(msg)
 		}
@@ -174,38 +156,38 @@ func (h *Handler) Handle(conn net.Conn) {
 	}()
 }
 
-func (h *Handler) handleAuth(msg []byte, conn net.Conn) error {
-	authEvent := &AuthEvent{}
+func (h *StressTestHandler) handleAuth(msg []byte, conn net.Conn) error {
+	authEvent := &stressTestAuthEvent{}
 
 	err := json.Unmarshal(msg, authEvent)
 	if err != nil {
 		return errors.New(fmt.Sprintf("cant unmarhsal %s", err))
 	}
 
-	userId, err := h.redis.HGet(authEvent.Data.Token, "user_id").Int()
-	sessionId := h.redis.HGet(authEvent.Data.Token, "session_id").String()
-	if err != nil || sessionId == "" {
-		return errors.New(fmt.Sprintf("403 forbidden %s", err))
-	}
+	//userId, err := h.redis.HGet(authEvent.Data.Token, "user_id").Int()
+	//sessionId := h.redis.HGet(authEvent.Data.Token, "session_id").String()
+	//if err != nil || sessionId == "" {
+	//	return errors.New(fmt.Sprintf("403 forbidden %s", err))
+	//}
 
 	h.rwConnsMutex.Lock()
-	h.connections[userId] = conn
+	h.connections[authEvent.UserId] = conn
 	h.rwConnsMutex.Unlock()
 
-	err = h.redis.StoreSessionId(sessionId, userId)
-	if err != nil {
-		return errors.New(fmt.Sprintf("cant store session id in handler %s", err))
-	}
+	//err = h.redis.StoreSessionId(authEvent.SessionId, authEvent.UserId)
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("cant store session id in handler %s", err))
+	//}
 
-	err = h.redis.Publish(&ConnectedEvent{
-		Event: models.Connected,
-		Data: ConnectedData{
-			SessionID: sessionId,
-		},
-	})
-	if err != nil {
-		return errors.New(fmt.Sprintf("something wrong while write connected event in redis %s", err))
-	}
+	//err = h.redis.Publish(&ConnectedEvent{
+	//	Event: models.Connected,
+	//	Data: ConnectedData{
+	//		SessionID: authEvent.SessionId,
+	//	},
+	//})
+	//if err != nil {
+	//	return errors.New(fmt.Sprintf("something wrong while write connected event in redis %s", err))
+	//}
 
 	successResponse, _ := json.Marshal(models.SuccessResponse{
 		Message: "auth success",
@@ -220,7 +202,7 @@ func (h *Handler) handleAuth(msg []byte, conn net.Conn) error {
 	return nil
 }
 
-func (h *Handler) handleError(err error, conn net.Conn) {
+func (h *StressTestHandler) handleError(err error, conn net.Conn) {
 	if conn != nil {
 		h.wsService.WriteServerClose([]byte("connection closed"), conn)
 		conn.Close()
